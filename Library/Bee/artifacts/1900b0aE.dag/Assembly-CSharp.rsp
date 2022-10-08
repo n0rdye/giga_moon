@@ -379,6 +379,7 @@
 -r:"Library/Bee/artifacts/1900b0aE.dag/UnityEngine.UI.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aE.dag/UnityEngine.XR.LegacyInputHelpers.ref.dll"
 "Assets/moving.cs"
+"Assets/PlayerControls.cs"
 "Assets/XRPlatformControllerSetup.cs"
 -langversion:9.0
 
