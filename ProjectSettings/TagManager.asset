@@ -4,8 +4,8 @@
 TagManager:
   serializedVersion: 2
   tags:
-  - stone
   - ground
+  - border
   layers:
   - Default
   - TransparentFX

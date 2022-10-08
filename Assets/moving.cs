@@ -2,14 +2,20 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System;
+using TMPro;
 
 public class moving : MonoBehaviour
 {
     public Rigidbody rb;
     public float grav = 3,speed =0.02f,Fspeed =0.02f,Rspeed =0.1f,f=0.02f;
-    public bool j=true,shift=true,g=true;
+    public float power=600,health=6,con;
+    public bool shift=true;
     public PlayerControls controls;
     public bool fw=false,bw=false,rt=false,lt=false,sh=false;
+    public TMP_Text text,conect,powertext,speedtext;
+    public Transform b;
+    public double Distance=0;
     // Start is called before the first frame update
     void Start()
     {
@@ -32,15 +38,40 @@ public class moving : MonoBehaviour
         controls.player.shift.canceled += ctx => sh=false;
     }
 
+    void healthcheck(){
+        text.text="";
+        for(int i=0;i<health;i++){
+            text.text+="<3";
+        }
+    }
+
+    void dist(){
+        conect.text="";
+        Distance=Vector3.Distance(this.transform.position, b.position);
+        for(int i=0;i<Distance/6;i++){
+            conect.text+="|";
+        }
+    }
+
     // Update is called once per frame
     void Update()
     {
-        // float x = Input.GetAxis("Horizontal");
-        // float z = Input.GetAxis("Vertical");
- 
-        // Vector3 Move = transform.right * x + transform.forward * z;
- 
-        // controller.Move(Move * speed * Time.deltaTime);
+        speedtext.text="";
+        for(int i=0;i<speed*250;i++){
+            speedtext.text+="/";
+        }
+        if (power > 0)
+        {
+            powertext.text="";
+            power -= Time.deltaTime;
+            for(int i=0;i<Math.Pow(power,1)/60;i++){
+                powertext.text+="[]";
+            }
+        }
+        dist();
+        if(health<=0){
+            Debug.Log("dead");
+        }
         if(fw){
             transform.Translate (0f, 0f, speed);
         }
@@ -54,7 +85,7 @@ public class moving : MonoBehaviour
             this.transform.Rotate (0f, Rspeed, 0f);
         }
 
-        if (sh && j){
+        if (sh&&shift){
             speed=Fspeed+0.02f;
         }
         else{
@@ -62,14 +93,12 @@ public class moving : MonoBehaviour
         }
 
         //jump
-        if(Input.GetKey (KeyCode.W) && Input.GetKeyDown (KeyCode.Space) && j && g){
+        if(Input.GetKey (KeyCode.W) && Input.GetKeyDown (KeyCode.Space)){
             rb.AddForce(transform.forward * grav);
             rb.AddForce(transform.up * grav);
-            j=false;g=false;
         } else
-        if (Input.GetKeyDown (KeyCode.Space) && j && g){
+        if (Input.GetKeyDown (KeyCode.Space)){
             rb.AddForce(transform.up * grav);
-            j=false;g=false;
         }
     }
 
@@ -91,21 +120,28 @@ public class moving : MonoBehaviour
     
     private IEnumerator OnCollisionEnter(Collision collision)
     {
-        float r=Rspeed;float s=speed;
-        float r2=r/2;float s2=s/2;
-        if (collision.gameObject.tag == "ground"&& (Fspeed-s2)>0&&s<=Fspeed){
-            Fspeed-=s2;Rspeed-=r2;
-            shift=false;g=false;j=true;
-            yield return new WaitForSeconds(3);
-            Fspeed+=s2;Rspeed+=r2;
-            g=true;shift=true;
-        }
-        else{
-            Fspeed=0;Rspeed=0;
-            shift=false;g=false;j=true;
-            yield return new WaitForSeconds(3);
-            Fspeed+=f;Rspeed+=r;
-            g=true;shift=true;
+        if(collision.gameObject.tag=="border"){
+            sh=false;shift=false;
+            float r=Rspeed, s=speed;
+            float r2=r/2, s2=s/2;
+
+            if ((Fspeed-s2)>0&&s<=Fspeed){
+                health-=1;
+                Fspeed-=s2;Rspeed-=r2;
+                healthcheck();
+                yield return new WaitForSeconds(4);
+                Fspeed+=s2;Rspeed+=r2;
+                
+            }
+            else if((Fspeed-s2)<0&&s>=Fspeed){
+                health-=1;
+                Fspeed=0;Rspeed=0;
+                healthcheck();
+                yield return new WaitForSeconds(4);
+                Fspeed=f;Rspeed=r;
+            }
+
+            shift=true;
         }
     }
 }
