@@ -5,7 +5,7 @@ using UnityEngine;
 public class moving : MonoBehaviour
 {
     public Rigidbody rb;
-    public float grav = 3,speed =0.02f,Fspeed =0.02f,Rspeed =0.1f;
+    public float grav = 3,speed =0.02f,Fspeed =0.02f,Rspeed =0.1f,f=0.02f;
     public bool j=true,shift=true,g=true;
     // Start is called before the first frame update
     void Start()
@@ -49,7 +49,7 @@ public class moving : MonoBehaviour
     {
         float r=Rspeed;float s=speed;
         float r2=r/2;float s2=s/2;
-        if (collision.gameObject.tag == "ground"&& (Fspeed-s2)>0){
+        if (collision.gameObject.tag == "ground"&& (Fspeed-s2)>0&&s<=Fspeed){
             Fspeed-=s2;Rspeed-=r2;
             shift=false;g=false;j=true;
             yield return new WaitForSeconds(3);
@@ -57,10 +57,10 @@ public class moving : MonoBehaviour
             g=true;shift=true;
         }
         else{
-            Fspeed-=speed;Rspeed-=r;
+            Fspeed=0;Rspeed=0;
             shift=false;g=false;j=true;
             yield return new WaitForSeconds(3);
-            Fspeed+=s;Rspeed+=r;
+            Fspeed+=f;Rspeed+=r;
             g=true;shift=true;
         }
     }
