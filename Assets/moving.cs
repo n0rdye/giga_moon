@@ -2,28 +2,42 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using System;
 using TMPro;
 
 public class moving : MonoBehaviour
 {
     public Rigidbody rb;
-    public float grav = 3,speed =0.02f,Fspeed =0.02f,Rspeed =0.1f,f=0.02f;
-    public float power=600,health=6,con;
+    public float grav = 3,speed =0.02f,Fspeed =0.02f,Rspeed =0.1f;
+    public float power=600,health=6,wakespeed=3,powermult=0;
     public bool shift=true;
     public PlayerControls controls;
-    public bool fw=false,bw=false,rt=false,lt=false,sh=false;
+    private float count=3;
+    public bool fw=false,bw=false,rt=false,lt=false,sh=false,interact=false,interact2=false,interact3=false,mine=false,mined=false;
     public TMP_Text text,conect,powertext,speedtext;
     public Transform b;
     public double Distance=0;
+    public Camera cam;
+    public TMP_Text deb_text;
+    public float owerload=0;
+    public TMP_Text[] buttons;
+    public GameObject buttons_obj;
+    public int buttons_rand=UnityEngine.Random.Range(0, 4);
+    public int buttons_num=-1,right=0,need=10;
+    public Animator radar_anim,cristals_anim;
+    public GameObject end_trigger,crist_trigger;
     // Start is called before the first frame update
     void Start()
     {
-
+        Cursor.visible = false;
+        missions(1);
+        buttons[buttons_rand].color = Color.red;
+        buttons_obj.SetActive(false);
     }
 
     private void Awake() {
-        
+        end_trigger.SetActive(false);
         controls= new PlayerControls();
 
         controls.player.forward.performed += ctx => fw=true;
@@ -36,6 +50,19 @@ public class moving : MonoBehaviour
         controls.player.backward.canceled += ctx => bw=false;
         controls.player.shift.performed += ctx => sh=true;
         controls.player.shift.canceled += ctx => sh=false;
+
+        controls.buttons.interact.performed += ctx => interact=true;
+        controls.buttons.interact.canceled += ctx => interact=false;
+        controls.buttons.interact2.performed += ctx => interact2=true;
+        controls.buttons.interact2.canceled += ctx => interact2=false;
+        controls.buttons.interact3.performed += ctx => interact3=true;
+        controls.buttons.interact3.canceled += ctx => interact3=false;
+
+        controls.buttons.up.performed += ctx =>  debuging_mission(0);
+        controls.buttons.left.performed += ctx =>  debuging_mission(2);
+        controls.buttons.right.performed += ctx =>  debuging_mission(1);
+        controls.buttons.down.performed += ctx =>  debuging_mission(3);
+        healthcheck();
     }
 
     void healthcheck(){
@@ -48,7 +75,7 @@ public class moving : MonoBehaviour
     void dist(){
         conect.text="";
         Distance=Vector3.Distance(this.transform.position, b.position);
-        for(int i=0;i<Distance/6;i++){
+        for(int i=0;i<Distance/7;i++){
             conect.text+="|";
         }
     }
@@ -56,6 +83,39 @@ public class moving : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if(mine){
+            crist_trigger.SetActive(false);
+            Fspeed=0f;Rspeed=0f;
+            cristals_anim.ResetTrigger("start");
+            cristals_anim.SetTrigger("start");
+            deb_text.text = "To mine the ground press [Left Trigger/Left Mouse Button]";
+            if(interact2){
+                cristals_anim.SetBool("mining",true);
+                mined=true;
+            }
+            else if(!interact2){
+                cristals_anim.SetBool("mining",false);
+            }
+            if(mined){
+                deb_text.text = "To grab the cristal press [Right Trigger/Right Mouse Button]";
+                if(interact3){
+                    cristals_anim.SetBool("grab",true);
+                    mine=false;
+                }
+                else if(!interact3){
+                    cristals_anim.SetBool("grab",false);
+                }
+            }
+        }
+        else if(!mine&&mined){
+            StartCoroutine("end_grab");
+        }
+        if(right==need){
+            right=0;
+            buttons_obj.SetActive(false);
+            StartCoroutine("end_radar");
+        }
+        //stats, death
         speedtext.text="";
         for(int i=0;i<speed*250;i++){
             speedtext.text+="/";
@@ -64,14 +124,27 @@ public class moving : MonoBehaviour
         {
             powertext.text="";
             power -= Time.deltaTime;
+            power -= powermult;
             for(int i=0;i<Math.Pow(power,1)/60;i++){
                 powertext.text+="[]";
             }
         }
+        else if (power<=0){
+            StartCoroutine(death("No power"));
+        }
         dist();
         if(health<=0){
-            Debug.Log("dead");
+            StartCoroutine(death("Hit"));
         }
+        if(Distance>160){
+            StartCoroutine(death("No conection"));
+        }
+
+        if(count>0){
+            count -= Time.deltaTime;
+        }
+
+        //moving
         if(fw){
             transform.Translate (0f, 0f, speed);
         }
@@ -84,12 +157,26 @@ public class moving : MonoBehaviour
         if(rt){
             this.transform.Rotate (0f, Rspeed, 0f);
         }
+        if (fw&&sh&&shift){
+            owerload += Time.deltaTime;
+            string textb =deb_text.text;
+            if(owerload>20){
+                deb_text.text += "\n Warning owerload";
+            }
+            else if(owerload>50){
+                shift=false;
+            }
+            else{
+                powermult=0.2f;
+                speed=Fspeed+Fspeed*0.65f;
+                deb_text.text = textb;
+            }
 
-        if (sh&&shift){
-            speed=Fspeed+0.02f;
         }
         else{
+            owerload=0;
             speed=Fspeed;
+            powermult=0;
         }
 
         //jump
@@ -102,12 +189,88 @@ public class moving : MonoBehaviour
         }
     }
 
+    IEnumerator end_grab(){
+        yield return new WaitForSeconds(5.3f);
+        Fspeed=0.06f;Rspeed=0.8f;
+        deb_text.text = "Great now got to beacon to end mission {go to the red plus on the map}";
+        end_trigger.SetActive(true);
+    }
+
+    void missions(int m){
+        switch(m){
+            case 1:
+                deb_text.text = "Radar having some problems go to the radar for debug (red circle on your map)";
+                break;
+            case 2: 
+                deb_text.text = "Good job now we need to collect moon cristals {green cross on your map}";
+                break;
+        }
+    }
+
+    void debuging_mission(int buttons_num){
+        if(buttons_num==buttons_rand){
+            buttons[buttons_rand].color = Color.white;
+            buttons_rand=UnityEngine.Random.Range(0, 4);
+            buttons[buttons_rand].color = Color.red;
+            right+=1;
+        }
+    }
+
+    bool radar_comp=false;
+    IEnumerator end_radar(){
+        radar_comp=true;
+        deb_text.text+= "\n Radar debuging complete";
+        Fspeed=0.06f;Rspeed=0.8f;
+        yield return new WaitForSeconds(2);
+        missions(2);
+        radar_anim.ResetTrigger("fixing");
+        radar_anim.SetTrigger("fixing");
+    }
+    
+    IEnumerator start_radar(){
+        deb_text.text+= "\n Conecting \n";
+        for(int i=0;i<4;i++){
+            deb_text.text+= ".";
+            yield return new WaitForSeconds(2);
+        }
+        yield return new WaitForSeconds(1);
+        deb_text.text+= "\n Conected \n {push button on [D-pad/arrow-keys] in same order as on screen }";
+        buttons_obj.SetActive(true);
+        Fspeed=0;Rspeed=0;
+    }
+
+    IEnumerator the_end(){
+        deb_text.text ="Congrats you complited all missions {thanks fo playing ^w^}";
+        yield return new WaitForSeconds(5);
+        Application.Quit();
+    }
+
+    IEnumerator death(string type){
+        cam.enabled = false;
+        deb_text.text = "Mission failed \n Conection lost \n Reason "+type;
+        Fspeed=0f;Rspeed=0;
+        yield return new WaitForSeconds(2);
+        deb_text.text = "Reload in 5 seconds";
+        yield return new WaitForSeconds(5);
+        Scene scene = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(scene.name);
+
+    }
+
     private void OnEnable() {
         controls.player.forward.Enable();
         controls.player.left.Enable();
         controls.player.right.Enable();
         controls.player.backward.Enable();
         controls.player.shift.Enable();
+
+        controls.buttons.left.Enable();
+        controls.buttons.right.Enable();
+        controls.buttons.up.Enable();
+        controls.buttons.down.Enable();
+        controls.buttons.interact.Enable();
+        controls.buttons.interact2.Enable();
+        controls.buttons.interact3.Enable();
     }
 
     private void OnDisable() {
@@ -116,32 +279,70 @@ public class moving : MonoBehaviour
         controls.player.right.Disable();
         controls.player.backward.Disable();
         controls.player.shift.Disable();
+
+        controls.buttons.left.Disable();
+        controls.buttons.right.Disable();
+        controls.buttons.up.Disable();
+        controls.buttons.down.Disable();
+        controls.buttons.interact.Disable();
+        controls.buttons.interact2.Disable();
+        controls.buttons.interact3.Disable();
+    }
+
+    private void OnTriggerEnter(Collider other) {
+        if(other.gameObject.tag == "radar"){
+            StartCoroutine("start_radar");
+        }
+        if(other.gameObject.tag =="end"){
+            StartCoroutine("the_end");
+        }
+
+    }
+    private void OnTriggerStay(Collider other) {
+        if(other.gameObject.tag == "cristals"&&radar_comp){
+            deb_text.text = "Press [A/E] button to start mining";
+            // StartCoroutine("crist_mine");
+            if(interact){
+                mine=true;
+            }
+        }
+        else if(other.gameObject.tag == "cristals"&&!radar_comp){
+            deb_text.text="You need to fix radar {go to the red circle on your map}";
+        }
+    }
+    private void OnTriggerExit(Collider other) {
+        if(other.gameObject.tag == "radar"&&radar_comp==false){
+            buttons_obj.SetActive(false);
+            StopCoroutine("start_radar");
+            deb_text.text+= "\n Conection failed";
+        }
     }
     
     private IEnumerator OnCollisionEnter(Collision collision)
     {
-        if(collision.gameObject.tag=="border"){
-            sh=false;shift=false;
-            float r=Rspeed, s=speed;
-            float r2=r/2, s2=s/2;
-
-            if ((Fspeed-s2)>0&&s<=Fspeed){
-                health-=1;
-                Fspeed-=s2;Rspeed-=r2;
-                healthcheck();
-                yield return new WaitForSeconds(4);
-                Fspeed+=s2;Rspeed+=r2;
-                
-            }
-            else if((Fspeed-s2)<0&&s>=Fspeed){
-                health-=1;
-                Fspeed=0;Rspeed=0;
-                healthcheck();
-                yield return new WaitForSeconds(4);
-                Fspeed=f;Rspeed=r;
-            }
-
+        float r=Rspeed,s=Fspeed;
+        if(collision.gameObject.tag=="border"&&count<=0){
+            count=wakespeed;shift=false;
+            Rspeed=Rspeed/2;Fspeed=Fspeed/2;
+            // sh=false;shift=false;
+            // float r=Rspeed, s=speed;
+            // float r2=r/2, s2=s/2;
+            // if ((Fspeed-s2)>0&&s<=Fspeed){
+            //     Fspeed-=s2;Rspeed-=r2;
+            //     yield return new WaitForSeconds(4);
+            //     Fspeed+=s2;Rspeed+=r2;
+            health-=1;
+            healthcheck();
+            yield return new WaitForSeconds(wakespeed);
+            // }
+            // else if((Fspeed-s2)<0&&s>=Fspeed){
+            //     Fspeed=0;Rspeed=0;
+            //     yield return new WaitForSeconds(4);
+            //     Fspeed=f;Rspeed=r;
+            // }
+            Rspeed=Rspeed*2;Fspeed=Fspeed*2;
             shift=true;
+            // shift=true;
         }
     }
 }
