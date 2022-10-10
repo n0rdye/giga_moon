@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
-using System;
 using TMPro;
 
 public class moving : MonoBehaviour
@@ -14,7 +13,7 @@ public class moving : MonoBehaviour
     public bool shift=true;
     public PlayerControls controls;
     private float count=3;
-    public bool fw=false,bw=false,rt=false,lt=false,sh=false,interact=false,interact2=false,interact3=false,mine=false,mined=false;
+    public bool fw=false,bw=false,rt=false,lt=false,sh=false,interact=false,interact2=false,interact3=false,mine=false,mined=false,mine_end=false,end=false;
     public TMP_Text text,conect,powertext,speedtext;
     public Transform b;
     public double Distance=0;
@@ -23,10 +22,11 @@ public class moving : MonoBehaviour
     public float owerload=0;
     public TMP_Text[] buttons;
     public GameObject buttons_obj;
-    public int buttons_rand=UnityEngine.Random.Range(0, 4);
+    public int buttons_rand= 0;
     public int buttons_num=-1,right=0,need=10;
     public Animator radar_anim,cristals_anim;
     public GameObject end_trigger,crist_trigger;
+    public sound sound;
     // Start is called before the first frame update
     void Start()
     {
@@ -62,6 +62,7 @@ public class moving : MonoBehaviour
         controls.buttons.left.performed += ctx =>  debuging_mission(2);
         controls.buttons.right.performed += ctx =>  debuging_mission(1);
         controls.buttons.down.performed += ctx =>  debuging_mission(3);
+        controls.buttons.exit.performed += ctx =>  Application.Quit();
         healthcheck();
     }
 
@@ -84,11 +85,9 @@ public class moving : MonoBehaviour
     void Update()
     {
         if(mine){
-            crist_trigger.SetActive(false);
             Fspeed=0f;Rspeed=0f;
             cristals_anim.ResetTrigger("start");
             cristals_anim.SetTrigger("start");
-            deb_text.text = "To mine the ground press [Left Trigger/Left Mouse Button]";
             if(interact2){
                 cristals_anim.SetBool("mining",true);
                 mined=true;
@@ -97,19 +96,21 @@ public class moving : MonoBehaviour
                 cristals_anim.SetBool("mining",false);
             }
             if(mined){
-                deb_text.text = "To grab the cristal press [Right Trigger/Right Mouse Button]";
                 if(interact3){
                     cristals_anim.SetBool("grab",true);
-                    mine=false;
                 }
                 else if(!interact3){
                     cristals_anim.SetBool("grab",false);
                 }
             }
         }
-        else if(!mine&&mined){
-            StartCoroutine("end_grab");
+        if (!crist_trigger.activeSelf&&mined){
+            mine=false;
+            deb_text.text = "Great now got to beacon to end mission {go to the red plus on the map}";
+            Fspeed=0.06f;Rspeed=0.8f;
+            mined=false;
         }
+
         if(right==need){
             right=0;
             buttons_obj.SetActive(false);
@@ -125,27 +126,37 @@ public class moving : MonoBehaviour
             powertext.text="";
             power -= Time.deltaTime;
             power -= powermult;
-            for(int i=0;i<Math.Pow(power,1)/60;i++){
+            for(int i=0;i<power/60;i++){
                 powertext.text+="[]";
             }
         }
-        else if (power<=0){
+        else if (power<=0&&!end){
+            sound.clip="dead";
             StartCoroutine(death("No power"));
         }
         dist();
-        if(health<=0){
+        if(health<=0&&!end){
+            sound.clip="dead";
             StartCoroutine(death("Hit"));
         }
-        if(Distance>160){
+        if(Distance>170&&!end){
+            sound.clip="dead";
             StartCoroutine(death("No conection"));
         }
 
         if(count>0){
             count -= Time.deltaTime;
         }
+        if(fw||bw||lt||rt){
+            sound.riding = true;
+        }
+        else if(!fw||!bw||!lt||!rt){
+            sound.riding = false;
+        }
 
         //moving
         if(fw){
+            sound.riding = true;
             transform.Translate (0f, 0f, speed);
         }
         if(bw){
@@ -157,26 +168,28 @@ public class moving : MonoBehaviour
         if(rt){
             this.transform.Rotate (0f, Rspeed, 0f);
         }
+        if(owerload>20){
+            deb_text.text = "\n Warning owerload";
+            shift=false;
+        }
+        else if(owerload<20){
+            shift=true;
+        }
         if (fw&&sh&&shift){
-            owerload += Time.deltaTime;
             string textb =deb_text.text;
-            if(owerload>20){
-                deb_text.text += "\n Warning owerload";
-            }
-            else if(owerload>50){
-                shift=false;
-            }
-            else{
-                powermult=0.2f;
-                speed=Fspeed+Fspeed*0.65f;
-                deb_text.text = textb;
-            }
-
+            powermult=0.1f;
+            speed=Fspeed+Fspeed*0.65f;
+            deb_text.text = textb;
         }
         else{
-            owerload=0;
             speed=Fspeed;
             powermult=0;
+        }
+        if(sh){
+            owerload += Time.deltaTime;
+        }
+        if(!fw){
+            owerload=0;
         }
 
         //jump
@@ -187,13 +200,6 @@ public class moving : MonoBehaviour
         if (Input.GetKeyDown (KeyCode.Space)){
             rb.AddForce(transform.up * grav);
         }
-    }
-
-    IEnumerator end_grab(){
-        yield return new WaitForSeconds(5.3f);
-        Fspeed=0.06f;Rspeed=0.8f;
-        deb_text.text = "Great now got to beacon to end mission {go to the red plus on the map}";
-        end_trigger.SetActive(true);
     }
 
     void missions(int m){
@@ -213,6 +219,7 @@ public class moving : MonoBehaviour
             buttons_rand=UnityEngine.Random.Range(0, 4);
             buttons[buttons_rand].color = Color.red;
             right+=1;
+            sound.clip="click";
         }
     }
 
@@ -225,6 +232,7 @@ public class moving : MonoBehaviour
         missions(2);
         radar_anim.ResetTrigger("fixing");
         radar_anim.SetTrigger("fixing");
+        sound.clip="radar";
     }
     
     IEnumerator start_radar(){
@@ -240,17 +248,19 @@ public class moving : MonoBehaviour
     }
 
     IEnumerator the_end(){
+        end=true;
+        Debug.Log("end");
         deb_text.text ="Congrats you complited all missions {thanks fo playing ^w^}";
         yield return new WaitForSeconds(5);
-        Application.Quit();
+        SceneManager.LoadScene("end");
     }
 
     IEnumerator death(string type){
-        cam.enabled = false;
         deb_text.text = "Mission failed \n Conection lost \n Reason "+type;
         Fspeed=0f;Rspeed=0;
-        yield return new WaitForSeconds(2);
-        deb_text.text = "Reload in 5 seconds";
+        yield return new WaitForSeconds(3);
+        cam.enabled = false;
+        deb_text.text = "Please wait 5 seconds to restart";
         yield return new WaitForSeconds(5);
         Scene scene = SceneManager.GetActiveScene();
         SceneManager.LoadScene(scene.name);
@@ -271,6 +281,7 @@ public class moving : MonoBehaviour
         controls.buttons.interact.Enable();
         controls.buttons.interact2.Enable();
         controls.buttons.interact3.Enable();
+        controls.buttons.exit.Enable();
     }
 
     private void OnDisable() {
@@ -287,6 +298,7 @@ public class moving : MonoBehaviour
         controls.buttons.interact.Disable();
         controls.buttons.interact2.Disable();
         controls.buttons.interact3.Disable();
+        controls.buttons.exit.Disable();
     }
 
     private void OnTriggerEnter(Collider other) {
@@ -296,11 +308,10 @@ public class moving : MonoBehaviour
         if(other.gameObject.tag =="end"){
             StartCoroutine("the_end");
         }
-
     }
     private void OnTriggerStay(Collider other) {
-        if(other.gameObject.tag == "cristals"&&radar_comp){
-            deb_text.text = "Press [A/E] button to start mining";
+        if(other.gameObject.tag == "cristals"&&radar_comp&&!mine){
+            deb_text.text = "Press [A/E] button to start mining \n To grab the cristal hold [Right Trigger/Right Mouse Button] \n To mine the ground press [Left Trigger/Left Mouse Button]";
             // StartCoroutine("crist_mine");
             if(interact){
                 mine=true;
@@ -310,6 +321,7 @@ public class moving : MonoBehaviour
             deb_text.text="You need to fix radar {go to the red circle on your map}";
         }
     }
+    
     private void OnTriggerExit(Collider other) {
         if(other.gameObject.tag == "radar"&&radar_comp==false){
             buttons_obj.SetActive(false);
@@ -322,6 +334,7 @@ public class moving : MonoBehaviour
     {
         float r=Rspeed,s=Fspeed;
         if(collision.gameObject.tag=="border"&&count<=0){
+            sound.clip="rock";
             count=wakespeed;shift=false;
             Rspeed=Rspeed/2;Fspeed=Fspeed/2;
             // sh=false;shift=false;

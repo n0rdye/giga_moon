@@ -1,5 +1,5 @@
 sceneSetups:
-- path: Assets/Lunar Landscape 3D/Scenes/LunarLandscape3D.unity
+- path: Assets/Lunar Landscape 3D/Scenes/main.unity
   isLoaded: 1
   isActive: 1
   isSubScene: 0
